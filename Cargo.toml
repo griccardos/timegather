@@ -1,0 +1,11 @@
+[package]
+name = "timegather"
+version = "0.1.0"
+edition = "2021"
+#library
+[lib]
+path = "src/lib.rs"
+
+
+[dependencies]
+indexmap = "2.4.0"
