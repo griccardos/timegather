@@ -1,86 +1,101 @@
 use indexmap::IndexMap;
 use std::fmt::Display;
-use std::sync::mpsc::{channel, Sender};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-pub struct TimeGatherer {
-    stats: Arc<Mutex<IndexedStats>>,
-    sender: Sender<IndexedStats>,
+pub struct TimeGather {
+    timers: Vec<Arc<Mutex<TimerInner>>>,
 }
-impl Display for TimeGatherer {
+impl Display for TimeGather {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, "{}", self.stats.lock().unwrap())?;
+        match self.timers.len() {
+            0 => writeln!(f, "No timers")?,
+            1 => write!(f, "")?,
+            n => writeln!(f, "{} timers", n)?,
+        }
+        for (i, timer) in self.timers.iter().enumerate() {
+            write!(f, "{}", timer.lock().unwrap())?;
+            if i < self.timers.len() - 1 {
+                write!(f, "\n")?;
+            }
+        }
         Ok(())
     }
 }
 
-impl TimeGatherer {
+impl TimeGather {
     pub fn new() -> Self {
-        let (sender, receiver) = channel::<IndexedStats>();
-        let stats = Arc::new(Mutex::new(IndexedStats(IndexMap::new())));
-        let stats_clone = stats.clone();
-        std::thread::spawn(move || {
-            loop {
-                if let Ok(stats) = receiver.recv() {
-                    //updates our stats
-                    let mut current = stats_clone.lock().unwrap();
-                    for (tag, stat) in stats.0.iter() {
-                        let curr_stat = current.0.entry(tag.clone()).or_insert(Stat::new());
-                        curr_stat.max = curr_stat.max.max(stat.max);
-                        curr_stat.min = curr_stat.min.min(stat.min);
-                        curr_stat.total += stat.total;
-                        curr_stat.count += stat.count;
-                    }
-                }
-            }
-        });
-        Self { stats, sender }
+        Self { timers: Vec::new() }
     }
-    pub fn timer(&self) -> Timer {
-        Timer::new(self.sender.clone())
+    pub fn timer(&mut self) -> Timer {
+        let timer = Arc::new(Mutex::new(TimerInner::new()));
+        self.timers.push(timer.clone());
+        Timer(timer)
+    }
+    pub fn timer_named(&mut self, name: &str) -> Timer {
+        let mut inner = TimerInner::new();
+        inner.name = Some(name.to_string());
+        let timer = Timer(Arc::new(Mutex::new(inner)));
+        self.timers.push(timer.0.clone());
+        timer
     }
 }
-
-pub struct Timer {
-    stats: IndexedStats,
-    instant: Instant,
-    sender: Sender<IndexedStats>,
-    start: Instant,
+pub struct Timer(Arc<Mutex<TimerInner>>);
+impl Display for Timer {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0.lock().unwrap())
+    }
 }
 
 impl Timer {
-    fn new(sender: Sender<IndexedStats>) -> Self {
+    pub fn update(&mut self, tag: &str) {
+        let now = Instant::now();
+        let mut timer = self.0.lock().unwrap();
+        let d = now.duration_since(timer.instant);
+        timer.instant = now;
+        let stat = timer.stats.0.entry(tag.to_string()).or_insert(Stat::new());
+        stat.add(d);
+    }
+    pub fn total(&self) -> Duration {
+        self.0.lock().unwrap().total()
+    }
+}
+
+pub struct TimerInner {
+    stats: IndexedStats,
+    instant: Instant,
+    start: Instant,
+    name: Option<String>,
+}
+
+impl TimerInner {
+    fn new() -> Self {
         let now = Instant::now();
         Self {
             stats: IndexedStats::default(),
             instant: now.clone(),
-            sender,
             start: now,
+            name: None,
         }
     }
-    pub fn update(&mut self, tag: &str) {
-        let now = Instant::now();
-        let d = now.duration_since(self.instant);
-        self.instant = now;
-        let stat = self.stats.0.entry(tag.to_string()).or_insert(Stat::new());
-        stat.add(d);
-    }
-    pub fn total(&self) -> Duration {
+
+    fn total(&self) -> Duration {
         self.start.elapsed()
     }
 }
-impl Drop for Timer {
-    fn drop(&mut self) {
-        let stats = std::mem::take(&mut self.stats);
 
-        let _ = self.sender.send(stats);
-    }
-}
-
-impl Display for Timer {
+impl Display for TimerInner {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, "{} Total:{:.4}s", self.stats, self.total().as_secs_f64())?;
+        if let Some(name) = &self.name {
+            writeln!(f, "{}:", name)?;
+        }
+        match self.stats.0.len() {
+            0 => write!(f, "No tags")?,
+            _ => write!(f, "{}", self.stats,)?,
+        }
+        if self.stats.0.len() > 1 {
+            write!(f, "\nTotal: {:.4}s", self.total().as_secs_f64())?;
+        }
         Ok(())
     }
 }
@@ -89,8 +104,11 @@ impl Display for Timer {
 pub struct IndexedStats(IndexMap<String, Stat>);
 impl Display for IndexedStats {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        for (k, v) in self.0.iter() {
-            writeln!(f, "{}: {}", k, v)?;
+        for (i, (k, v)) in self.0.iter().enumerate() {
+            write!(f, "{}: {}", k, v)?;
+            if i < self.0.len() - 1 {
+                write!(f, "\n")?;
+            }
         }
         Ok(())
     }
