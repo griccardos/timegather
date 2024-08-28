@@ -9,6 +9,8 @@ path = "src/lib.rs"
 
 [dependencies]
 indexmap = "2.4.0"
+rand = "0.8.5"
 
 [dev-dependencies]
 rayon = "1"
+tokio = { version = "0", features = ["full"] }
