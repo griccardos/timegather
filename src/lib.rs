@@ -38,7 +38,7 @@ impl Timer {
     pub fn new() -> Self {
         Self(Arc::new(Mutex::new(TimerInner::new())))
     }
-    /// Used AFTER the code you want to measure, and saves duration with a given `tag`.
+    /// Used AFTER the code you want to measure, and saves duration since the last measurement with a given `tag`.
     /// Uses the duration since the last measurement. (see `update_with_session` function to measure against a session when using threads which may run concurrently e.g. rayon )
     /// If you want to measure a specific part of the code and ignore everything before, you can add a dummy tag before the code.
     ///
@@ -101,7 +101,7 @@ impl Timer {
     }
 }
 
-pub struct TimerInner {
+pub(crate) struct TimerInner {
     stats: IndexMap<(Session, String), Stat>, //key is the session and the tag
     instant: IndexMap<Session, Instant>,      //need an instant for each session
     last: Instant,

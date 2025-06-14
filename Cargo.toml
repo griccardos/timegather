@@ -1,16 +1,23 @@
 [package]
 name = "timegather"
+description = "timing lines of code for benchmarking"
 version = "0.1.0"
 edition = "2021"
+authors = ["griccardos"]
+repository = "https://github.com/griccardos/timegather"
+readme = "readme.md"
+keywords = ["benchmark", "timing", "time", "clock", "profiling"]
+categories = ["development_tools", "testing", "profiling"]
+
 #library
 [lib]
 path = "src/lib.rs"
 
 
 [dependencies]
-indexmap = "2.4.0"
-rand = "0.8.5"
+indexmap = "2"
+rand = "0"
 
 [dev-dependencies]
 rayon = "1"
-tokio = { version = "0", features = ["full"] }
+tokio = { version = "1", features = ["full"] }
