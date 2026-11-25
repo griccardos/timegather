@@ -1,7 +1,7 @@
 [package]
 name = "timegather"
 description = "timing lines of code for benchmarking"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 authors = ["griccardos"]
 repository = "https://github.com/griccardos/timegather"
@@ -15,8 +15,8 @@ path = "src/lib.rs"
 
 
 [dependencies]
-indexmap = "2"
-rand = "0"
+indexmap = "2.14"
+rand = "0.10"
 
 [dev-dependencies]
 rayon = "1"

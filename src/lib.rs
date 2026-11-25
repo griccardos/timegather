@@ -1,4 +1,6 @@
 use indexmap::IndexMap;
+use rand::rngs::SmallRng;
+use rand::RngExt;
 use std::fmt::Display;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -116,7 +118,7 @@ impl Session {
     }
     pub(crate) fn new() -> Self {
         //generate a unique id using rand, cannot be 0
-        Self(rand::random::<usize>().max(1))
+        Self(rand::make_rng::<SmallRng>().random::<u64>() as usize + 1)
     }
 }
 
@@ -268,7 +270,7 @@ mod tests {
         h1.join().unwrap();
         h2.join().unwrap();
         timer.update("join");
-        println!("{}", timer.to_string());
+        println!("{timer}");
         let stats = timer.stats();
         println!("{:?}", timer.session_stats());
         assert_eq!(stats.len(), 3);
@@ -291,7 +293,7 @@ mod tests {
             timer_clone.update_with_session("sleep", id);
         });
 
-        println!("{}", timer.to_string());
+        println!("{timer}");
         let stats = timer.stats();
         println!("{:?}", timer.session_stats());
         assert_eq!(stats.len(), 1);
